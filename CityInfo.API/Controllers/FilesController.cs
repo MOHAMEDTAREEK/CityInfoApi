@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
 
@@ -6,10 +7,18 @@ namespace CityInfo.API.Controllers
 {
     [ApiController]
     [Authorize]
-    [Route("api/files")]
+    [Route("api/v{version:apiVersion}/files")]
+    [ApiVersion(0.1)]
+
+
     public class FilesController : ControllerBase
     {
         private readonly FileExtensionContentTypeProvider _fileExtensionContentTypeProvider;
+        /// <summary>
+        /// this constructor initializes the fileExtensionContentTypeProvider
+        /// </summary>
+        /// <param name="fileExtensionContentTypeProvider"></param>
+        /// <exception cref="System.ArgumentNullException"></exception>
         public FilesController(
              FileExtensionContentTypeProvider fileExtensionContentTypeProvider)
         {
@@ -19,14 +28,19 @@ namespace CityInfo.API.Controllers
         }
 
 
+        /// <summary>
+        /// this method returns a file
+        /// </summary>
+        /// <param name="fileId"></param>
+        /// <returns></returns>
         [HttpGet("{fileId}")]
         public ActionResult GetFiles(string fileId)
         {
-           var filePath = "getting-started-with-rest-slides.pdf";
-           if(!System.IO.File.Exists(filePath))
+            var filePath = "getting-started-with-rest-slides.pdf";
+            if (!System.IO.File.Exists(filePath))
             {
-               return NotFound();
-           }
+                return NotFound();
+            }
             if (!_fileExtensionContentTypeProvider.TryGetContentType(
                  filePath, out var contentType))
             {
@@ -37,6 +51,13 @@ namespace CityInfo.API.Controllers
             var bytes = System.IO.File.ReadAllBytes(filePath);
             return File(bytes, contentType, Path.GetFileName(filePath));
         }
+
+        /// <summary>
+        /// this method creates a file
+        /// </summary>
+        /// <param name="file"></param>
+        /// <returns></returns>
+        [HttpPost]
         public async Task<ActionResult> CreateFile(IFormFile file)
         {
             // Validate the input. Put a limit on filesize to avoid large uploads attacks. 
