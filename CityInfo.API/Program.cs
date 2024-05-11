@@ -3,16 +3,43 @@ using Asp.Versioning.ApiExplorer;
 using CityInfo.API;
 using CityInfo.API.DbContexts;
 using CityInfo.API.Services;
+using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 using System.Reflection;
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .WriteTo.Console()
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 // Add services to the container.
+
+var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+if (environment == Environments.Development)
+{
+    builder.Host.UseSerilog(
+        (context, loggerConfiguration) => loggerConfiguration
+            .MinimumLevel.Debug()
+            .WriteTo.Console());
+}
+else
+{
+    builder.Host.UseSerilog((context, loggerConfiguration) => loggerConfiguration
+    .MinimumLevel.Debug()
+    .WriteTo.Console()
+    .WriteTo.ApplicationInsights(
+        context.Configuration["ApplicationInsights:InstrumentationKey"],
+        TelemetryConverter.Traces)
+        );
+}
 
 builder.Services.AddControllers(options =>
 {
@@ -112,6 +139,12 @@ builder.Services.AddSwaggerGen(setupAction =>
     });
 });
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders =
+            ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    });
+
 
 var app = builder.Build();
 
@@ -120,8 +153,12 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler();
 }
-if (app.Environment.IsDevelopment())
-{
+
+app.UseForwardedHeaders();  
+
+
+//if (app.Environment.IsDevelopment())
+//{
     app.UseSwagger();
     app.UseSwaggerUI(setupAction =>
     {
@@ -134,7 +171,7 @@ if (app.Environment.IsDevelopment())
         }
     }
     );
-}
+//}
 
 
 app.UseHttpsRedirection();
